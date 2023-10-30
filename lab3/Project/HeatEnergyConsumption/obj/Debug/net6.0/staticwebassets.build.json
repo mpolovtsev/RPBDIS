@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "G2TRAX/S2c5zwn9wMdmuv4WZTg/CwbEWuFbl38BSZkE=",
+  "Source": "HeatEnergyConsumption",
+  "BasePath": "_content/HeatEnergyConsumption",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
