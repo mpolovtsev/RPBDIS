@@ -1,0 +1,36 @@
+﻿@model IEnumerable<HeatEnergyConsumption.Models.OwnershipForm>
+
+@{
+	ViewData["Title"] = "Формы собственности";
+}
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8"/>
+		<title>@ViewData["Title"]</title>
+		<link rel="stylesheet" href="~/css/style.css" asp-append-version="true"/>
+	</head>
+	<body>
+		<h2 class="header">@ViewData["Title"]</h2>
+		<br/>
+
+		<table class="table">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Название</th>
+				</tr>
+			</thead>
+			<tbody>
+				@foreach (OwnershipForm record in Model)
+				{
+					<tr>
+						<td>@record.Id</td>
+						<td>@record.Name</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</body>
+</html>
