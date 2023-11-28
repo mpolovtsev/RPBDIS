@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using HeatEnergyConsumption.Data;
-using HeatEnergyConsumption.Services.CacheService;
 
 public class Program
 {
@@ -24,19 +23,15 @@ public class Program
                 .AddDefaultUI()
                 .AddDefaultTokenProviders();
 
+        // Добавление поддержки MVC
         services.AddControllersWithViews();
 
         // Добавление поддержки сессий
         services.AddDistributedMemoryCache();
         services.AddSession();
 
-        // Добавление поддержки кэширования
-        services.AddMemoryCache();
-        services.AddScoped<OwnershipFormsCacheService>();
-        
         var app = builder.Build();
 
-        // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
         {
             app.UseMigrationsEndPoint();
@@ -44,7 +39,6 @@ public class Program
         else
         {
             app.UseExceptionHandler("/Home/Error");
-            // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
             app.UseHsts();
         }
 

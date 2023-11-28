@@ -5,32 +5,56 @@ using HeatEnergyConsumption.Models;
 using Microsoft.AspNetCore.Authorization;
 using HeatEnergyConsumption.ViewModels;
 using HeatEnergyConsumption.ViewModels.PageViewModels;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace HeatEnergyConsumption.Controllers
 {
     [Authorize]
     public class ManagersController : Controller
     {
-        readonly HeatEnergyConsumptionContext _context;
+        readonly HeatEnergyConsumptionContext dbContext;
         const int pageSize = 10;
 
-        public ManagersController(HeatEnergyConsumptionContext context)
+        public ManagersController(HeatEnergyConsumptionContext dbContext)
         {
-            _context = context;
+            this.dbContext = dbContext;
         }
 
-        public async Task<IActionResult> Index(string name, string surname, string middleName, SortState sortOrder = SortState.ManagerNameAsc, int page = 1)
+        public async Task<IActionResult> Index(string name, string surname, string middleName,
+            SortState sortOrder = SortState.ManagerNameAsc, int page = 1)
         {
-            // Загрузка данных из кэша
-            IQueryable<Manager> managers = _context.Managers;
+            IQueryable<Manager> managers = dbContext.Managers;
 
             if (managers == null)
                 return Problem("Записи не найдены.");
 
-            // Фильтрация
-            if (!(string.IsNullOrEmpty(name) && string.IsNullOrEmpty(surname) && string.IsNullOrEmpty(middleName)))
+            if (HttpContext.Request.Method == "GET")
+            {
+                HttpContext.Request.Cookies.TryGetValue("ManagerName", out string? nameCookie);
+                HttpContext.Request.Cookies.TryGetValue("ManagerSurame", out string? surnameCookie);
+                HttpContext.Request.Cookies.TryGetValue("ManagerMiddleName", out string? middleNameCookie);
+
+                if (!(string.IsNullOrEmpty(nameCookie) && string.IsNullOrEmpty(surnameCookie) && string.IsNullOrEmpty(middleNameCookie)))
+                {
+                    managers = Filter(managers, nameCookie, surnameCookie, middleNameCookie);
+                    ViewData["ManagerName"] = nameCookie;
+                    ViewData["ManagerSurname"] = surnameCookie;
+                    ViewData["ManagerMiddlename"] = middleNameCookie;
+                }
+            }
+            else if (HttpContext.Request.Method == "POST" && !(string.IsNullOrEmpty(name) && string.IsNullOrEmpty(surname) &&
+                string.IsNullOrEmpty(middleName)))
+            {
                 managers = Filter(managers, name, surname, middleName);
+
+                if (name != null)
+                    HttpContext.Response.Cookies.Append("ManagerName", name);
+
+                if (surname != null)
+                    HttpContext.Response.Cookies.Append("ManagerSurame", surname);
+
+                if (middleName != null)
+                    HttpContext.Response.Cookies.Append("ManagerMiddleName", middleName);
+            }
 
             // Сортировка
             managers = Sort(managers, sortOrder);
@@ -54,18 +78,14 @@ namespace HeatEnergyConsumption.Controllers
 
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null || _context.Managers == null)
-            {
+            if (id == null || dbContext.Managers == null)
                 return NotFound();
-            }
 
-            var manager = await _context.Managers
+            var manager = await dbContext.Managers
                 .FirstOrDefaultAsync(m => m.Id == id);
 
             if (manager == null)
-            {
                 return NotFound();
-            }
 
             return View(manager);
         }
@@ -81,8 +101,8 @@ namespace HeatEnergyConsumption.Controllers
         {
             if (ModelState.IsValid)
             {
-                _context.Add(manager);
-                await _context.SaveChangesAsync();
+                dbContext.Add(manager);
+                await dbContext.SaveChangesAsync();
 
                 return RedirectToAction(nameof(Index));
             }
@@ -92,17 +112,13 @@ namespace HeatEnergyConsumption.Controllers
 
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null || _context.Managers == null)
-            {
+            if (id == null || dbContext.Managers == null)
                 return NotFound();
-            }
 
-            var manager = await _context.Managers.FindAsync(id);
+            var manager = await dbContext.Managers.FindAsync(id);
 
             if (manager == null)
-            {
                 return NotFound();
-            }
 
             return View(manager);
         }
@@ -112,48 +128,39 @@ namespace HeatEnergyConsumption.Controllers
         public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Surname,MiddleName,PhoneNumber")] Manager manager)
         {
             if (id != manager.Id)
-            {
                 return NotFound();
-            }
 
             if (ModelState.IsValid)
             {
                 try
                 {
-                    _context.Update(manager);
-                    await _context.SaveChangesAsync();
+                    dbContext.Update(manager);
+                    await dbContext.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
                 {
                     if (!ManagerExists(manager.Id))
-                    {
                         return NotFound();
-                    }
                     else
-                    {
                         throw;
-                    }
                 }
 
                 return RedirectToAction(nameof(Index));
             }
+
             return View(manager);
         }
 
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null || _context.Managers == null)
-            {
+            if (id == null || dbContext.Managers == null)
                 return NotFound();
-            }
 
-            var manager = await _context.Managers
+            var manager = await dbContext.Managers
                 .FirstOrDefaultAsync(m => m.Id == id);
 
             if (manager == null)
-            {
                 return NotFound();
-            }
 
             return View(manager);
         }
@@ -162,29 +169,26 @@ namespace HeatEnergyConsumption.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            if (_context.Managers == null)
-            {
-                return Problem("Записи не найдены.");
-            }
+            if (dbContext.Managers == null)
+                return NotFound();
 
-            var manager = await _context.Managers.FindAsync(id);
+            var manager = await dbContext.Managers.FindAsync(id);
 
-            if (manager != null)
-            {
-                _context.Managers.Remove(manager);
-            }
-            
-            await _context.SaveChangesAsync();
+            if (manager == null)
+                return NotFound();
+
+            dbContext.Managers.Remove(manager);
+            await dbContext.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index));
         }
 
-        private bool ManagerExists(int id)
+        bool ManagerExists(int id)
         {
-            return (_context.Managers?.Any(e => e.Id == id)).GetValueOrDefault();
+            return (dbContext.Managers?.Any(e => e.Id == id)).GetValueOrDefault();
         }
-        // middleName может быть null
-        IQueryable<Manager> Filter(IQueryable<Manager> managers, string name, string surname, string middleName)
+
+        IQueryable<Manager> Filter(IQueryable<Manager> managers, string? name, string? surname, string? middleName)
         {
             return managers.Where(manager => manager.Name.Contains(name ?? "") && manager.Surname.Contains(surname ?? "") && manager.MiddleName.Contains(middleName ?? ""));
         }

@@ -35,6 +35,18 @@
 <p>
     <a asp-action="Create">Создать</a>
 </p>
+
+@using (Html.BeginForm("Index", "Organizations", FormMethod.Post))
+{
+    <fieldset>
+        Название: @Html.TextBox("Name", Model.Name, ViewData["OrganizationName"])
+        Адрес: @Html.TextBox("Address", Model.Address, ViewData["OrganizationAddress"])
+        Форма собственности: @Html.TextBox("OwnershipForm", Model.OwnershipForm, ViewData["OrganizationOwnershipForm"])
+        Руководитель: @Html.TextBox("Manager", Model.Manager, ViewData["OrganizationManager"])
+        <input type="submit" value="Поиск" />
+    </fieldset>
+}
+
 <table class="table">
     <thead>
         <tr>

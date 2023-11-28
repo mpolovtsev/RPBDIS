@@ -1,36 +1,70 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using HeatEnergyConsumption.Data;
 using HeatEnergyConsumption.Models;
-using Microsoft.AspNetCore.Authorization;
 using HeatEnergyConsumption.ViewModels.PageViewModels;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using HeatEnergyConsumption.ViewModels;
+using System.Xml.Linq;
 
 namespace HeatEnergyConsumption.Controllers
 {
     [Authorize]
     public class OrganizationsController : Controller
     {
-        readonly HeatEnergyConsumptionContext _context;
+        readonly HeatEnergyConsumptionContext dbContext;
         const int pageSize = 10;
 
-        public OrganizationsController(HeatEnergyConsumptionContext context)
+        public OrganizationsController(HeatEnergyConsumptionContext dbContext)
         {
-            _context = context;
+            this.dbContext = dbContext;
         }
 
-        public async Task<IActionResult> Index(SortState sortOrder = SortState.OrganizationNameAsc, int page = 1)
+        public async Task<IActionResult> Index(string name, string address, string ownershipForm, string manager, SortState sortOrder = SortState.OrganizationNameAsc, int page = 1)
         {
-            // Загрузка данных из кэша
-            IQueryable<Organization> organizations = _context.Organizations.Include(organization => organization.Manager).Include(organization => organization.OwnershipForm);
-            
+            IQueryable<Organization> organizations = dbContext.Organizations
+                .Include(organization => organization.Manager)
+                .Include(organization => organization.OwnershipForm);
+
             if (organizations == null)
                 return Problem("Записи не найдены.");
 
             // Фильтрация
+            if (HttpContext.Request.Method == "GET")
+            {
+                HttpContext.Request.Cookies.TryGetValue("OrganizationName", out string? nameCookie);
+                HttpContext.Request.Cookies.TryGetValue("OrganizationAddress", out string? addressCookie);
+                HttpContext.Request.Cookies.TryGetValue("OrganizationOwnershipForm", out string? ownershipFormCookie);
+                HttpContext.Request.Cookies.TryGetValue("OrganizationManager", out string? managerCookie);
 
+                if (!(string.IsNullOrEmpty(nameCookie) && string.IsNullOrEmpty(addressCookie) && string.IsNullOrEmpty(ownershipFormCookie) &&
+                    string.IsNullOrEmpty(managerCookie)))
+                {
+                    organizations = Filter(organizations, nameCookie, addressCookie, ownershipFormCookie, managerCookie);
+                    ViewData["OrganizationName"] = nameCookie;
+                    ViewData["OrganizationAddress"] = addressCookie;
+                    ViewData["OrganizationOwnershipForm"] = ownershipFormCookie;
+                    ViewData["OrganizationManagerCookie"] = managerCookie;
+                }
+            }
+            else if (HttpContext.Request.Method == "POST" && !(string.IsNullOrEmpty(name) && string.IsNullOrEmpty(address) &&
+                string.IsNullOrEmpty(ownershipForm) && string.IsNullOrEmpty(manager)))
+            {
+                organizations = Filter(organizations, name, address, ownershipForm, manager);
+
+                if (name != null)
+                    HttpContext.Response.Cookies.Append("OrganizationName", name);
+
+                if (address != null)
+                    HttpContext.Response.Cookies.Append("OrganizationAddress", address);
+
+                if (ownershipForm != null)
+                    HttpContext.Response.Cookies.Append("OrganizationOwnershipForm", ownershipForm);
+
+                if (manager != null)
+                    HttpContext.Response.Cookies.Append("OrganizationManager", manager);
+            }
 
             // Сортировка
             organizations = Sort(organizations, sortOrder);
@@ -51,29 +85,25 @@ namespace HeatEnergyConsumption.Controllers
 
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null || _context.Organizations == null)
-            {
+            if (id == null || dbContext.Organizations == null)
                 return NotFound();
-            }
 
-            var organization = await _context.Organizations
+            var organization = await dbContext.Organizations
                 .Include(o => o.Manager)
                 .Include(o => o.OwnershipForm)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
             if (organization == null)
-            {
                 return NotFound();
-            }
 
             return View(organization);
         }
 
         public IActionResult Create()
         {
-            ViewData["ManagerId"] = new SelectList(_context.Managers, "Id", "Surname");
-            ViewData["OwnershipFormId"] = new SelectList(_context.OwnershipForms, "Id", "Name");
-            
+            ViewData["ManagerId"] = new SelectList(dbContext.Managers, "Id", "Surname");
+            ViewData["OwnershipFormId"] = new SelectList(dbContext.OwnershipForms, "Id", "Name");
+
             return View();
         }
 
@@ -83,35 +113,31 @@ namespace HeatEnergyConsumption.Controllers
         {
             if (ModelState.ErrorCount <= 2)
             {
-                _context.Add(organization);
-                await _context.SaveChangesAsync();
+                dbContext.Add(organization);
+                await dbContext.SaveChangesAsync();
 
                 return RedirectToAction(nameof(Index));
             }
 
-            ViewData["ManagerId"] = new SelectList(_context.Managers, "Id", "Surname", organization.ManagerId);
-            ViewData["OwnershipFormId"] = new SelectList(_context.OwnershipForms, "Id", "Name", organization.OwnershipFormId);
-            
+            ViewData["ManagerId"] = new SelectList(dbContext.Managers, "Id", "Surname", organization.ManagerId);
+            ViewData["OwnershipFormId"] = new SelectList(dbContext.OwnershipForms, "Id", "Name", organization.OwnershipFormId);
+
             return View(organization);
         }
 
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null || _context.Organizations == null)
-            {
+            if (id == null || dbContext.Organizations == null)
                 return NotFound();
-            }
 
-            var organization = await _context.Organizations.FindAsync(id);
+            var organization = await dbContext.Organizations.FindAsync(id);
 
             if (organization == null)
-            {
                 return NotFound();
-            }
 
-            ViewData["ManagerId"] = new SelectList(_context.Managers, "Id", "Id", organization.ManagerId);
-            ViewData["OwnershipFormId"] = new SelectList(_context.OwnershipForms, "Id", "Id", organization.OwnershipFormId);
-            
+            ViewData["ManagerId"] = new SelectList(dbContext.Managers, "Id", "Id", organization.ManagerId);
+            ViewData["OwnershipFormId"] = new SelectList(dbContext.OwnershipForms, "Id", "Id", organization.OwnershipFormId);
+
             return View(organization);
         }
 
@@ -120,54 +146,44 @@ namespace HeatEnergyConsumption.Controllers
         public async Task<IActionResult> Edit(int id, [Bind("Id,Name,OwnershipFormId,Address,ManagerId")] Organization organization)
         {
             if (id != organization.Id)
-            {
                 return NotFound();
-            }
 
             if (ModelState.IsValid)
             {
                 try
                 {
-                    _context.Update(organization);
-                    await _context.SaveChangesAsync();
+                    dbContext.Update(organization);
+                    await dbContext.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
                 {
                     if (!OrganizationExists(organization.Id))
-                    {
                         return NotFound();
-                    }
                     else
-                    {
                         throw;
-                    }
                 }
 
                 return RedirectToAction(nameof(Index));
             }
 
-            ViewData["ManagerId"] = new SelectList(_context.Managers, "Id", "Id", organization.ManagerId);
-            ViewData["OwnershipFormId"] = new SelectList(_context.OwnershipForms, "Id", "Id", organization.OwnershipFormId);
-            
+            ViewData["ManagerId"] = new SelectList(dbContext.Managers, "Id", "Id", organization.ManagerId);
+            ViewData["OwnershipFormId"] = new SelectList(dbContext.OwnershipForms, "Id", "Id", organization.OwnershipFormId);
+
             return View(organization);
         }
 
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null || _context.Organizations == null)
-            {
+            if (id == null || dbContext.Organizations == null)
                 return NotFound();
-            }
 
-            var organization = await _context.Organizations
+            var organization = await dbContext.Organizations
                 .Include(o => o.Manager)
                 .Include(o => o.OwnershipForm)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
             if (organization == null)
-            {
                 return NotFound();
-            }
 
             return View(organization);
         }
@@ -176,26 +192,29 @@ namespace HeatEnergyConsumption.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            if (_context.Organizations == null)
-            {
-                return Problem("Записи не найдены.");
-            }
+            if (dbContext.Organizations == null)
+                return NotFound();
 
-            var organization = await _context.Organizations.FindAsync(id);
+            var organization = await dbContext.Organizations.FindAsync(id);
 
-            if (organization != null)
-            {
-                _context.Organizations.Remove(organization);
-            }
-            
-            await _context.SaveChangesAsync();
+            if (organization == null)
+                return NotFound();
+
+            dbContext.Organizations.Remove(organization);
+            await dbContext.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index));
         }
 
-        private bool OrganizationExists(int id)
+        bool OrganizationExists(int id)
         {
-            return (_context.Organizations?.Any(e => e.Id == id)).GetValueOrDefault();
+            return (dbContext.Organizations?.Any(e => e.Id == id)).GetValueOrDefault();
+        }
+
+        IQueryable<Organization> Filter(IQueryable<Organization> organizations, string? name, string? address, string? ownershipForm, string? manager)
+        {
+            return organizations.Where(organization => organization.Name.Contains(name ?? "") && organization.Address.Contains(address ?? "") &&
+            organization.OwnershipForm.Name.Contains(ownershipForm ?? "") && organization.Manager.Surname.Contains(manager ?? ""));
         }
 
         IQueryable<Organization> Sort(IQueryable<Organization> organizations, SortState sortOrder = SortState.OrganizationNameAsc)

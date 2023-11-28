@@ -55,8 +55,8 @@ namespace HeatEnergyConsumption.Controllers
         {
             if (ModelState.IsValid)
             {
-                IdentityUser user = new IdentityUser 
-                { 
+                IdentityUser user = new IdentityUser
+                {
                     UserName = model.Email,
                     Email = model.Email
                 };
@@ -129,7 +129,7 @@ namespace HeatEnergyConsumption.Controllers
             return View(model);
         }
 
-        public async Task<IActionResult> Delete(string id) 
+        public async Task<IActionResult> Delete(string id)
         {
             IdentityUser user = await userManager.FindByIdAsync(id);
             string role = (await userManager.GetRolesAsync(user))[0];
@@ -166,3 +166,4 @@ namespace HeatEnergyConsumption.Controllers
         }
     }
 }
+

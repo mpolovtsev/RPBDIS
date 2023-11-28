@@ -38,10 +38,10 @@
     <a asp-action="Create">Создать</a>
 </p>
 
-@using (Html.BeginForm("Index", "OwnershipForms", FormMethod.Get))
+@using (Html.BeginForm("Index", "OwnershipForms", FormMethod.Post))
 {
     <fieldset>
-        Название формы собственности: @Html.TextBox("Name", Model.Name)
+        Название формы собственности: @Html.TextBox("Name", Model.Name, ViewData["OwneshipFormName"])
         <input type="submit" value="Поиск" />
     </fieldset>
 }

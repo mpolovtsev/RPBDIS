@@ -36,12 +36,12 @@
     <a asp-action="Create">Создать</a>
 </p>
 
-@using (Html.BeginForm("Index", "Managers", FormMethod.Get))
+@using (Html.BeginForm("Index", "Managers", FormMethod.Post))
 {
     <fieldset>
-        Имя: @Html.TextBox("Name", Model.Name)
-        Фамилия: @Html.TextBox("Surname", Model.Surname)
-        Отчество: @Html.TextBox("MiddleName", Model.MiddleName)
+        Имя: @Html.TextBox("Name", Model.Name, ViewData["ManagerName"])
+        Фамилия: @Html.TextBox("Surname", ViewData["ManagerSurname"])
+        Отчество: @Html.TextBox("MiddleName", ViewData["ManagerMiddleName"])
         <input type="submit" value="Поиск" />
     </fieldset>
 }
@@ -49,7 +49,7 @@
 <table class="table">
     <thead>
         <tr>
-            <th>@ViewData["NameSort"]
+            <th>
                 <a asp-action="Index" asp-route-sortOrder="@ViewData["NameSort"]">@Html.DisplayNameFor(model => model.Name)</a>
             </th>
             <th>
