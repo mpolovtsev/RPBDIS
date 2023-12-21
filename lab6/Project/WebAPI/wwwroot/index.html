@@ -1,0 +1,265 @@
+﻿<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width" />
+        <title>Организации</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css" />
+        <link rel="stylesheet" href="css/site.css" />
+    </head>
+    <body>
+        <h1 class="title">Организации</h1>
+
+        <form name="organization_form" method="post">
+            <input type="hidden" name="id" value="0" />
+            <div class="input-container">
+                <label class="input-title" for="name">Название:</label>
+                <input class="input-field" name="name" autocomplete="off" />
+            </div>
+            <div class="input-container">
+                <label class="input-title" for="ownership_form">Форма собственности:</label>
+                <select class="input-field" id="ownership_form" name="ownership_form">
+                    <option disabled selected>Выберите форму собственности</option>
+                </select>
+            </div>
+            <div class="input-container">
+                <label class="input-title" for="address">Адрес:</label>
+                <input class="input-field" name="address" autocomplete="off" />
+            </div>
+            <div class="input-container">
+                <label class="input-title" for="manager">Руководитель:</label>
+                <select class="input-field" id="manager" name="manager">
+                    <option disabled selected>Выберите руководителя</option>
+                </select>
+            </div>
+            <div class="panel-body">
+                <button type="submit" id="submit" class="btn btn-primary">Сохранить</button>
+                <a id="reset" class="btn btn-primary">Сбросить</a>
+            </div>
+        </form>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Название</th>
+                    <th>Форма собственности</th>
+                    <th>Адрес</th>
+                    <th>Руководитель</th>
+                    <th>Операции</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        <script>
+            async function GetOrganizations() {
+                const response = await fetch("/api/organizations", {
+                    method: "GET",
+                    headers: { 'Accept': "application/json" }
+                });
+
+                if (response.ok) {
+                    const organizations = await response.json();
+                    let rows = document.querySelector("tbody");
+
+                    organizations.forEach(organization => {
+                        rows.append(row(organization));
+                    })
+                }
+            }
+
+            async function GetOrganization(id) {
+                const response = await fetch("/api/organizations/" + id, {
+                    method: "GET",
+                    headers: { "Accept": "application/json" }
+                });
+
+                if (response.ok) {
+                    const organization = await response.json();
+                    const form = document.forms["organization_form"];
+
+                    form.elements["id"].value = organization.id;
+                    form.elements["name"].value = organization.name;
+                    form.elements["ownership_form"].selectedIndex = organization.ownershipFormId;
+                    form.elements["address"].value = organization.address;
+                    form.elements["manager"].selectedIndex = organization.managerId;
+                }
+            }
+
+            async function CreateOrganization(name, ownershipFormId, address, managerId) {
+                const response = await fetch("/api/organizations", {
+                    method: "POST",
+                    headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: name,
+                        ownershipFormId: ownershipFormId,
+                        address: address,
+                        managerId: managerId
+                    })
+                });
+
+                if (response.ok) {
+                    const organization = await response.json();
+                    reset();
+
+                    let form = document.forms["organization_form"];
+                    organization.ownershipFormName = form.elements["ownership_form"].option[ownershipFormId].text;
+                    organization.managerSurname = form.elements["manager"].option[managerId].text;
+
+                    document.querySelector("tbody").append(row(organization));
+                }
+            }
+
+            async function EditOrganization(id, name, ownershipFormId, address, managerId) {
+                const response = await fetch("/api/organizations", {
+                    method: "PUT",
+                    headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        id: id,
+                        name: name,
+                        ownershipFormId: ownershipFormId,
+                        address: address,
+                        managerId: managerId
+                    })
+                });
+
+                if (response.ok) {
+                    const user = await response.json();
+                    reset();
+
+                    let form = document.forms["organization_form"];
+                    organization.ownershipFormName = form.elements["ownership_form"].option[ownershipFormId].text;
+                    organization.managerSurname = form.elements["manager"].option[managerId].text;
+
+                    document.querySelector("tr[data-rowid='" + organization.id + "']").replaceWith(row(organization));
+                }
+            }
+
+            async function DeleteOrganization(id) {
+                const response = await fetch("/api/organizations/" + id, {
+                    method: "DELETE",
+                    headers: { "Accept": "application/json" }
+                });
+
+                if (response.ok) {
+                    const organization = await response.json();
+                    document.querySelector("tr[data-rowid='" + organization.id + "']").remove();
+                }
+            }
+
+            async function GetOwnershipForms() {
+                const response = await fetch("/api/organizations/ownershipForms", {
+                    method: "GET",
+                    headers: { "Accept": "application/json" }
+                });
+
+                const selectElement = document.getElementById('ownership_form');
+
+                if (response.ok === true) {
+                    const ownershipForms = await response.json();
+                    ownershipForms.forEach(ownershipForm => {
+                        const option = document.createElement('option');
+                        option.value = ownershipForm.id;
+                        option.text = `${ownershipForm.name}`;
+                        selectElement.add(option);
+                    });
+                }
+            }
+
+            async function GetManagers() {
+                const response = await fetch("/api/organizations/managers", {
+                    method: "GET",
+                    headers: { "Accept": "application/json" }
+                });
+
+                const selectElement = document.getElementById('manager');
+
+                if (response.ok === true) {
+                    const managers = await response.json();
+                    managers.forEach(manager => {
+                        const option = document.createElement('option');
+                        option.value = manager.id;
+                        option.text = `${manager.surname}`;
+                        selectElement.add(option);
+                    });
+                }
+            }
+
+            function row(organization) {
+                let tr = document.createElement("tr");
+                tr.setAttribute("data-rowid", organization.id);
+
+                let nameTd = document.createElement("td");
+                nameTd.append(organization.name);
+                tr.append(nameTd);
+
+                let ownershipFormTd = document.createElement("td");
+                ownershipFormTd.append(organization.ownershipFormName);
+                tr.append(ownershipFormTd);
+
+                let addressTd = document.createElement("td");
+                addressTd.append(organization.address);
+                tr.append(addressTd);
+
+                let managerTd = document.createElement("td");
+                managerTd.append(organization.managerSurname);
+                tr.append(managerTd);
+
+                let linksTd = document.createElement("td");
+
+                let editLink = document.createElement("a");
+                editLink.setAttribute("data-id", organization.id);
+                editLink.setAttribute("style", "cursor:pointer;padding:15px;");
+                editLink.append("Изменить");
+                editLink.addEventListener("click", e => {
+                    e.preventDefault();
+                    GetOrganization(organization.id);
+                });
+                linksTd.append(editLink);
+
+                let removeLink = document.createElement("a");
+                removeLink.setAttribute("data-id", organization.id);
+                removeLink.setAttribute("style", "cursor:pointer;padding:15px;");
+                removeLink.append("Удалить");
+                removeLink.addEventListener("click", e => {
+                    e.preventDefault();
+                    DeleteOrganization(organization.id);
+                });
+                linksTd.append(removeLink);
+
+                tr.appendChild(linksTd);
+
+                return tr;
+            }
+
+            function reset() {
+                const form = document.forms["organization_form"];
+                form.reset();
+                form.elements["id"].value = 0;
+            }
+
+            document.getElementById("reset").addEventListener("click", e => {
+                e.preventDefault();
+                reset();
+            });
+
+            document.forms["organization_form"].addEventListener("submit", e => {
+                e.preventDefault();
+                const form = document.forms["organization_form"];
+                const id = form.elements["id"].value;
+                const name = form.elements["name"].value;
+                const ownershipFormId = form.elements["ownership_form"].selectedIndex;
+                const address = form.elements["address"].value;
+                const managerId = form.elements["manager"].selectedIndex;
+
+                if (id == 0)
+                    CreateOrganization(name, ownershipFormId, address, managerId);
+                else
+                    EditOrganization(id, name, ownershipFormId, address, managerId);
+            });
+
+            GetOwnershipForms();
+            GetManagers();
+            GetOrganizations();
+        </script>
+    </body>
+</html>
